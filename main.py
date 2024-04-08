@@ -59,7 +59,7 @@ def main():
     print('Times per queue size:')
 
     for i, time in enumerate(simul.times_per_size):
-        print(f'{i}: {time}   ')
+        print(f'{i}: {time} -> {(time / simul.time)*100:.2f}%   ')
 
     print(f'\nEvents lost: {simul.events_lost}')
 
