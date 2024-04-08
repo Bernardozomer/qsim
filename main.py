@@ -132,14 +132,14 @@ class Simulator:
         self.random_generated += 1
 
         return self.random.next() * (
-            self.arrival_range.start - self.arrival_range.stop
+            self.arrival_range.stop - self.arrival_range.start
         ) + self.arrival_range.start
 
     def _get_departure_time(self) -> float:
         self.random_generated += 1
 
         return self.random.next() * (
-            self.departure_range.start - self.departure_range.stop
+            self.departure_range.stop - self.departure_range.start
         ) + self.departure_range.start
 
     def _increment_time(self, delta: float):
