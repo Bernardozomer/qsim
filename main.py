@@ -69,7 +69,7 @@ class Simulator:
             self._depart(event)
 
     def is_full(self) -> bool:
-        return self.in_queue < self.max_queue_size
+        return self.in_queue >= self.max_queue_size
 
     def _pop_next_event(self) -> Event:
         return heapq.heappop(self.schedule)
