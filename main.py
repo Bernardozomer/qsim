@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from functools import total_ordering
 
 # RNG parameters.
-A = 1_140_671_485
-C = 12_820_163
-M = 2 ** 24
-SEED = 7
+A = 512345
+C = 373621
+M = 2 ** 31
+SEED = 100
 # Simulator parameters.
 RANDOM_LIMIT = 100_000
 MAX_QUEUE_SIZE = 5
