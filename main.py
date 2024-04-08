@@ -94,7 +94,7 @@ class Simulator:
         return heapq.heappop(self.schedule)
 
     def _arrive(self, e: Event):
-        self._increment_time(e.time)
+        self._set_time(e.time)
 
         if not self.is_full():
             self.in_queue += 1
@@ -107,7 +107,7 @@ class Simulator:
         self._schedule_arrival()
 
     def _depart(self, e: Event):
-        self._increment_time(e.time)
+        self._set_time(e.time)
         self.in_queue -= 1
 
         if self.in_queue >= self.servers:
@@ -142,9 +142,9 @@ class Simulator:
             self.departure_range.stop - self.departure_range.start
         ) + self.departure_range.start
 
-    def _increment_time(self, delta: float):
-        self.time += delta
-        self.times_per_size[self.in_queue] += delta
+    def _set_time(self, delta: float):
+        self.times_per_size[self.in_queue] += delta - self.time
+        self.time = delta
 
 
 def main():
