@@ -136,7 +136,7 @@ def main():
     )
 
     simulator.start(START_TIME)
-    random_remaining = RANDOM_LIMIT - 1
+    random_remaining = RANDOM_LIMIT
 
     while (random_remaining > 0):
         simulator.step()
