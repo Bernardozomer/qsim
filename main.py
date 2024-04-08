@@ -9,10 +9,11 @@ M = 2 ** 24
 SEED = 7
 # Simulator parameters.
 RANDOM_LIMIT = 100_000
-MAX_QUEUE_SIZE = 10
+MAX_QUEUE_SIZE = 5
 SERVERS = 1
-ARRIVAL_RANGE = range(5, 6)
-DEPARTURE_RANGE = range(1, 3)
+ARRIVAL_RANGE = range(2, 5)
+DEPARTURE_RANGE = range(3, 5)
+START_TIME = 2
 
 
 class Random:
@@ -56,9 +57,10 @@ class Simulator:
         self.time = 0
         self.times_per_size = [0 for _ in range(0, self.max_queue_size)]
         self.random_generated = 0
+        self.events_lost = 0
 
-    def start(self):
-        self._schedule_arrival()
+    def start(self, time: float = None):
+        self._schedule_arrival(time)
 
     def step(self):
         event = self._pop_next_event()
@@ -78,24 +80,29 @@ class Simulator:
         self._increment_time(e.time)
 
         if not self.is_full():
-            self._enqueue()
+            self.in_queue += 1
 
             if self.in_queue <= self.servers:
                 self._schedule_departure()
+        else:
+            self.events_lost += 1
 
         self._schedule_arrival()
 
     def _depart(self, e: Event):
         self._increment_time(e.time)
-        self._dequeue()
+        self.in_queue -= 1
 
         if self.in_queue >= self.servers:
             self._schedule_departure()
 
-    def _schedule_arrival(self):
+    def _schedule_arrival(self, time: float = None):
+        if time is None:
+            time = self._get_arrival_time()
+
         heapq.heappush(
             self.schedule,
-            Event(self.time + self._get_arrival_time(), is_arrival=True)
+            Event(self.time + time, is_arrival=True)
         )
 
     def _schedule_departure(self):
@@ -103,12 +110,6 @@ class Simulator:
             self.schedule,
             Event(self.time + self._get_departure_time(), is_arrival=False)
         )
-
-    def _enqueue(self):
-        self.in_queue += 1
-
-    def _dequeue(self):
-        self.in_queue -= 1
 
     def _get_arrival_time(self) -> float:
         self.random_generated += 1
@@ -134,7 +135,7 @@ def main():
         SERVERS, MAX_QUEUE_SIZE, ARRIVAL_RANGE, DEPARTURE_RANGE
     )
 
-    simulator.start()
+    simulator.start(START_TIME)
     random_remaining = RANDOM_LIMIT - 1
 
     while (random_remaining > 0):
@@ -146,6 +147,8 @@ def main():
 
     for i, time in enumerate(simulator.times_per_size):
         print(f'{i}: {time}   ')
+
+    print(f'\nEvents lost: {simulator.events_lost}')
 
 
 if __name__ == '__main__':
