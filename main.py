@@ -154,11 +154,13 @@ def main():
     )
 
     simulator.start(START_TIME)
+    last_random_generated = 0
     random_remaining = RANDOM_LIMIT
 
     while (random_remaining > 0):
         simulator.step()
-        random_remaining -= simulator.random_generated
+        random_remaining -= simulator.random_generated - last_random_generated
+        last_random_generated = simulator.random_generated
 
     print(f'Final time: {simulator.time}\n')
     print('Times per queue size:')
