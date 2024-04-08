@@ -8,11 +8,12 @@ C = 373621
 M = 2 ** 31
 SEED = 100
 # Simulator parameters.
-RANDOM_LIMIT = 100_000
+RANDOMS = [0.8, 0.2, 0.1, 0.9, 0.3, 0.5, 0.6, 0.7]
+RANDOM_LIMIT = len(RANDOMS)
 MAX_QUEUE_SIZE = 5
 SERVERS = 1
-ARRIVAL_RANGE = range(2, 5)
-DEPARTURE_RANGE = range(3, 5)
+ARRIVAL_RANGE = range(2, 4)
+DEPARTURE_RANGE = range(1, 3)
 START_TIME = 2
 
 
@@ -26,6 +27,22 @@ class Random:
     def next(self) -> float:
         self.previous = ((self.a * self.previous) + self.c) % self.m
         return self.previous / self.m
+
+
+class RandomFromList:
+    def __init__(self, randoms: list[float]):
+        self.randoms = randoms
+        self.next_idx = 0
+
+    def next(self) -> float:
+        next_idx = self.next_idx
+
+        if self.next_idx + 1 == len(self.randoms):
+            self.next_idx = 0
+        else:
+            self.next_idx += 1
+
+        return self.randoms[next_idx]
 
 
 @ dataclass
@@ -45,7 +62,7 @@ class Simulator:
     def __init__(
             self, servers: int, max_queue_size: int,
             arrival_range: float, departure_range: float,
-            random: Random = Random()
+            random: Random | RandomFromList = Random()
     ):
         self.servers = servers
         self.max_queue_size = max_queue_size
@@ -132,7 +149,8 @@ class Simulator:
 
 def main():
     simulator = Simulator(
-        SERVERS, MAX_QUEUE_SIZE, ARRIVAL_RANGE, DEPARTURE_RANGE
+        SERVERS, MAX_QUEUE_SIZE, ARRIVAL_RANGE, DEPARTURE_RANGE,
+        RandomFromList(RANDOMS)
     )
 
     simulator.start(START_TIME)
