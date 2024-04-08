@@ -72,7 +72,7 @@ class Simulator:
         self.schedule = []
         self.in_queue = 0
         self.time = 0
-        self.times_per_size = [0 for _ in range(0, self.max_queue_size)]
+        self.times_per_size = [0 for _ in range(0, self.max_queue_size + 1)]
         self.random_generated = 0
         self.events_lost = 0
 
