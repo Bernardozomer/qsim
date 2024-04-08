@@ -1,24 +1,23 @@
-[
-    {
-    	"max_queue_size": 3,
-	    "servers": 2,
-	    "arrival_range": [1, 4],
-	    "departure_range": [3, 4],
-	    "start_time": 1.5,
-	    "random_limit": 100000,
-    	"pregen": false,
-	    "a" : 512345,
-	    "c" : 373621,
-	    "m" : 2147483648,
-	    "seed" : 100
-    }, 
-    {
-        "max_queue_size": 5,
-	    "servers": 1,
-	    "departure_range": [2, 3],
-	    "a" : 512345,
-	    "c" : 373621,
-	    "m" : 2147483648,
-	    "seed" : 100
-    }
-]
+{
+    "start_time": 1.5,
+    "random_limit": 100000,
+    "pregen": false,
+    "a" : 512345,
+    "c" : 373621,
+    "m" : 2147483648,
+    "seed" : 100,
+    "queues" : [
+        {
+    	    "max_queue_size": 3,
+	        "servers": 2,
+	        "arrival_range": [1, 4],
+	        "departure_range": [3, 4]
+	    
+        }, 
+        {
+            "max_queue_size": 5,
+	        "servers": 1,
+	        "departure_range": [2, 3]
+        }
+    ]
+}
