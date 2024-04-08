@@ -1,24 +1,39 @@
 import heapq
+import json
+import sys
 from dataclasses import dataclass
 from functools import total_ordering
 
-# RNG parameters.
-A = 512345
-C = 373621
-M = 2 ** 31
-SEED = 100
-# Simulator parameters.
-RANDOMS = [0.8, 0.2, 0.1, 0.9, 0.3, 0.5, 0.6, 0.7]
-RANDOM_LIMIT = len(RANDOMS)
-MAX_QUEUE_SIZE = 5
-SERVERS = 1
-ARRIVAL_RANGE = range(2, 4)
-DEPARTURE_RANGE = range(1, 3)
-START_TIME = 2
+
+class Parameters:
+    def __init__(self, params):
+        self.pregen = params['pregen']
+        self.max_queue_size = params['max_queue_size']
+        self.servers = params['servers']
+
+        self.arrival_range = range(
+            params['arrival_range'][0], params['arrival_range'][1]
+        )
+
+        self.departure_range = range(
+            params['departure_range'][0], params['departure_range'][1]
+        )
+
+        self.start_time = params['start_time']
+        self.random_limit = params['random_limit']
+        self.pregen = params['pregen']
+
+        if self.pregen:
+            self.randoms = params['randoms']
+        else:
+            self.a = params['a']
+            self.c = params['c']
+            self.m = params['m']
+            self.seed = params['seed']
 
 
 class Random:
-    def __init__(self, a: int = A, c: int = C, m: int = M, seed: float = SEED):
+    def __init__(self, a: int, c: int, m: int, seed: float):
         self.a = a
         self.c = c
         self.m = m
@@ -62,7 +77,7 @@ class Simulator:
     def __init__(
             self, servers: int, max_queue_size: int,
             arrival_range: float, departure_range: float,
-            random: Random | RandomFromList = Random()
+            random: Random | RandomFromList
     ):
         self.servers = servers
         self.max_queue_size = max_queue_size
@@ -148,14 +163,23 @@ class Simulator:
 
 
 def main():
+    args = sys.argv
+    params = parse_params_file(args[1])
+
+    if params.pregen:
+        random_ = RandomFromList(params.randoms)
+    else:
+        random_ = Random(params.a, params.c, params.m, params.seed)
+
     simulator = Simulator(
-        SERVERS, MAX_QUEUE_SIZE, ARRIVAL_RANGE, DEPARTURE_RANGE,
-        RandomFromList(RANDOMS)
+        params.servers, params.max_queue_size,
+        params.arrival_range, params.departure_range,
+        random_
     )
 
-    simulator.start(START_TIME)
+    simulator.start(params.start_time)
     last_random_generated = 0
-    random_remaining = RANDOM_LIMIT
+    random_remaining = params.random_limit
 
     while (random_remaining > 0):
         simulator.step()
@@ -169,6 +193,12 @@ def main():
         print(f'{i}: {time}   ')
 
     print(f'\nEvents lost: {simulator.events_lost}')
+
+
+def parse_params_file(filename) -> Parameters:
+    with open(filename) as fp:
+        params = json.load(fp)
+        return Parameters(params)
 
 
 if __name__ == '__main__':
