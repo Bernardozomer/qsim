@@ -1,0 +1,13 @@
+{
+	"max_queue_size": 5,
+	"servers": 1,
+	"arrival_range": [2, 5],
+	"departure_range": [3, 5],
+	"start_time": 2,
+	"random_limit": 100000,
+	"pregen": false,
+	"a" : 512345,
+	"c" : 373621,
+	"m" : 2147483648,
+	"seed" : 100
+}
