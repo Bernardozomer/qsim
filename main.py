@@ -2,6 +2,7 @@ import json
 import sys
 
 import simulator
+from typing import List
 
 
 class Parameters:
@@ -18,17 +19,24 @@ class Parameters:
             self.m = params['m']
             self.seed = params['seed']
         
+        self.queues = []
+        
         for queue in params['queues']:
-            self.max_queue_size = queue['max_queue_size']
-            self.servers = queue['servers']
+            max_queue_size = queue['max_queue_size']
+            servers = queue['servers']
 
-            self.arrival_range = range(
-                queue['arrival_range'][0], queue['arrival_range'][1]
-            )
+            if 'arrival_range' in queue:
+                arrival_range = range(
+                    queue['arrival_range'][0], queue['arrival_range'][1]
+                )
 
-            self.departure_range = range(
+            departure_range = range(
                 queue['departure_range'][0], queue['departure_range'][1]
             )
+
+            self.queues.append(simulator.Queue(
+                servers, max_queue_size, arrival_range, departure_range
+            ))
 
 
 def main():
@@ -41,8 +49,7 @@ def main():
         rand = simulator.Random(params.a, params.c, params.m, params.seed)
 
     simul = simulator.Simulator(
-        params.servers, params.max_queue_size,
-        params.arrival_range, params.departure_range,
+        params.queues,
         rand
     )
 

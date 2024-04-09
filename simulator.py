@@ -1,6 +1,8 @@
 import heapq
 from dataclasses import dataclass
 from functools import total_ordering
+from typing import List
+from enum import Enum
 
 
 class Random:
@@ -31,11 +33,16 @@ class RandomFromList:
         return self.randoms[next_idx]
 
 
+class EventType(Enum):
+    ARRIVE = "arrive"
+    PASS = "pass"
+    DEPART = "depart"
+
 @dataclass
 @total_ordering
 class Event:
     time: float
-    is_arrival: bool
+    event_type: EventType
 
     def __eq__(self, o: 'Event') -> bool:
         return self.__dict__ == o.__dict__
@@ -55,12 +62,12 @@ class Queue:
 
 class Simulator:
     def __init__(
-            self, random: Random | RandomFromList, queues: list[Queue]
+            self, random: Random | RandomFromList, queues: List[Queue]
     ):
         self.queues = queues
         self.random = random
         self.schedule = []
-        self.in_queue = 0
+        self.in_queue = [0, 0]
         self.time = 0
         self.times_per_size = [0 for _ in range(0, self.queues[0].max_queue_size + 1)]
         self.random_generated = 0
@@ -72,35 +79,50 @@ class Simulator:
     def step(self):
         event = self._pop_next_event()
 
-        if event.is_arrival:
+        if event.event_type == EventType.ARRIVE:
             self._arrive(event)
-        else:
+        elif event.event_type == EventType.DEPART:
             self._depart(event)
+        else:
+            self._pass(event)
 
-    def is_full(self) -> bool:
-        return self.in_queue >= self.queues[0].max_queue_size
+    def first_is_full(self) -> bool:
+        return (self.in_queue[0] >= self.queues[0].max_queue_size)
+
+    def second_is_full(self) -> bool:
+        return (self.in_queue[1] >= self.queues[1].max_queue_size)
+
 
     def _pop_next_event(self) -> Event:
         return heapq.heappop(self.schedule)
 
     def _arrive(self, e: Event):
-        self._set_time(e.time)
+        self._set_time(e.time, 0)
 
-        if not self.is_full():
-            self.in_queue += 1
+        if not self.first_is_full():
+            self.in_queue[0] += 1
 
-            if self.in_queue <= self.queues[0].servers:
+            if self.in_queue[0] <= self.queues[0].servers:
                 self._schedule_departure()
         else:
             self.events_lost += 1
 
         self._schedule_arrival()
 
+    def _pass(self, e: Event):
+        self._set_time(e.time, 0)
+        self.in_queue[0] -= 1
+        
+        if self.in_queue[1] < self.queues[1].max_queue_size:
+            self._set_time(e.time, 1)
+            self.in_queue[1] += 1
+            self._schedule_pass()
+            
     def _depart(self, e: Event):
-        self._set_time(e.time)
-        self.in_queue -= 1
+        self._set_time(e.time, 1)
+        self.in_queue[1] -= 1
 
-        if self.in_queue >= self.queues[0].servers:
+        if self.in_queue[1] >= self.queues[1].servers:
             self._schedule_departure()
 
     def _schedule_arrival(self, time: float = None):
@@ -109,13 +131,22 @@ class Simulator:
 
         heapq.heappush(
             self.schedule,
-            Event(self.time + time, is_arrival=True)
+            Event(self.time + time, event_type=EventType.ARRIVE)
         )
 
+    def _schedule_pass(self, time: float = None):
+        if time is None:
+            time = self.time
+
+        heapq.heappush(
+            self.schedule,
+            Event(self.time + time, event_type=EventType.PASS)
+        )
+    
     def _schedule_departure(self):
         heapq.heappush(
             self.schedule,
-            Event(self.time + self._get_departure_time(), is_arrival=False)
+            Event(self.time + self._get_departure_time(), event_type = EventType.DEPART)
         )
 
     def _get_arrival_time(self) -> float:
@@ -129,9 +160,9 @@ class Simulator:
         self.random_generated += 1
 
         return self.random.next() * (
-            self.queues[0].departure_range.stop - self.queues[0].departure_range.start
-        ) + self.queues[0].departure_range.start
+            self.queues[1].departure_range.stop - self.queues[1].departure_range.start
+        ) + self.queues[1].departure_range.start
 
-    def _set_time(self, delta: float):
-        self.times_per_size[self.in_queue] += delta - self.time
+    def _set_time(self, delta: float, queueNumber: int):
+        self.times_per_size[self.in_queue[queueNumber]] += delta - self.time
         self.time = delta
