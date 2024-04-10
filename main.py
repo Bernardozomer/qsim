@@ -5,35 +5,67 @@ import simulator
 
 
 class Parameters:
-    def __init__(self, params):
-        self.pregen = params['pregen']
-        self.max_queue_size = params['max_queue_size']
-        self.servers = params['servers']
+    """Store simulation and queue parameters from a parsed JSON file."""
 
-        self.arrival_range = range(
+    def __init__(self, params):
+        self.random_limit: int = params['random_limit']
+        """The amount of random numbers to generate
+        before ending the simulation.
+        """
+        self.pregen: bool = params['pregen']
+        """If True, random numbers come from a pregenerated list."""
+
+        # Store random number generation parameters
+        # according to the generation method.
+        if self.pregen:
+            self.randoms: list[float] = params['randoms']
+            """Random number list."""
+        else:
+            self.a: float = params['a']
+            """Random number generation parameter."""
+            self.c: float = params['c']
+            """Random number generation parameter."""
+            self.m: float = params['m']
+            """Random number generation parameter."""
+            self.seed: float = params['seed']
+            """Random number generation parameter."""
+
+        self.start_queue: str = params['start_queue']
+        """Name of the queue which receives all arrival events."""
+        self.start_time = params['start_time']
+        """Time for first arrival."""
+
+        self.arrival_range: range = range(
             params['arrival_range'][0], params['arrival_range'][1]
         )
+        """Time range for how long it takes for an arrival to occur."""
 
-        self.departure_range = range(
-            params['departure_range'][0], params['departure_range'][1]
-        )
+        self.queues: list[simulator.Queue] = []
+        """Queues in the simulation."""
 
-        self.start_time = params['start_time']
-        self.random_limit = params['random_limit']
-        self.pregen = params['pregen']
+        # Store each individual queue as a queue object.
+        for q_name, q_params in params['queues'].items():
+            departure_range = range(
+                q_params['departure_range'][0], q_params['departure_range'][1]
+            )
 
-        if self.pregen:
-            self.randoms = params['randoms']
-        else:
-            self.a = params['a']
-            self.c = params['c']
-            self.m = params['m']
-            self.seed = params['seed']
+            self.queues.append(simulator.Queue(
+                q_name, q_params['servers'], q_params['max_queue_size'],
+                departure_range, q_params['out']
+            ))
 
 
 def main():
-    args = sys.argv
-    params = parse_params_file(args[1])
+    """Program entrypoint."""
+    simul, params = parse_params_file(sys.argv[1])
+    run_simulation(simul, params)
+    print_results(simul)
+
+
+def parse_params_file(filename: str) -> tuple[simulator.Simulator, Parameters]:
+    """Parse a JSON input file into a parameters object."""
+    with open(filename) as fp:
+        params = Parameters(json.load(fp))
 
     if params.pregen:
         rand = simulator.RandomFromList(params.randoms)
@@ -41,33 +73,33 @@ def main():
         rand = simulator.Random(params.a, params.c, params.m, params.seed)
 
     simul = simulator.Simulator(
-        params.servers, params.max_queue_size,
-        params.arrival_range, params.departure_range,
-        rand
+        params.queues, params.start_queue, params.arrival_range, rand
     )
 
+    return simul, params
+
+
+def run_simulation(simul: simulator.Simulator, params: Parameters):
+    """Step through the simulation until the stop condition is achieved."""
     simul.start(params.start_time)
-    last_random_generated = 0
-    random_remaining = params.random_limit
 
-    while (random_remaining > 0):
+    while (simul.random_generated < params.random_limit):
         simul.step()
-        random_remaining -= simul.random_generated - last_random_generated
-        last_random_generated = simul.random_generated
-
-    print(f'Final time: {simul.time}\n')
-    print('Times per queue size:')
-
-    for i, time in enumerate(simul.times_per_size):
-        print(f'{i}: {time}   ')
-
-    print(f'\nEvents lost: {simul.events_lost}')
 
 
-def parse_params_file(filename) -> Parameters:
-    with open(filename) as fp:
-        params = json.load(fp)
-        return Parameters(params)
+def print_results(simul: simulator.Simulator):
+    """Print global simulation and individual queue results"""
+    print(f'Final time: {simul.time}')
+
+    for q in simul.queues.values():
+        print(f'\n{q.name}\n')
+        print('Times per queue size:')
+
+        for i, time in enumerate(q.times_per_size):
+            probability = (time / simul.time)
+            print(f'{i}: {time} ({probability:.2f})')
+
+        print(f'\nEvents lost: {q.events_lost}')
 
 
 if __name__ == '__main__':
