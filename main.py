@@ -31,7 +31,7 @@ class Parameters:
             """Random number generation parameter."""
 
         self.start_queue: str = params['start_queue']
-        """Name of the queue which receives all arrival messages."""
+        """Name of the queue which receives all arrival events."""
         self.start_time = params['start_time']
         """Time for first arrival."""
 
