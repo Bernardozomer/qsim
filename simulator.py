@@ -94,7 +94,7 @@ class Simulator:
         if event.kind == EventKind.ARRIVAL:
             self._arrive(event)
         elif event.kind == EventKind.PASSAGE:
-            pass
+            self._pass(event)
         else:
             self._depart(event)
 
@@ -119,7 +119,7 @@ class Simulator:
 
     def _pass(self, e: Event):
         self._set_time(e.time)
-        queue = e.queue,
+        queue = e.queue
         queue.in_queue -= 1
 
         if queue.in_queue >= queue.servers:
@@ -194,7 +194,7 @@ class Simulator:
         for q, p in queue.out.items():
             x -= p
 
-            if p <= 0:
+            if x <= 0:
                 choice = q
 
         return self.queues[choice]
