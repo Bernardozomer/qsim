@@ -5,15 +5,15 @@
 	"c" : 373621,
 	"m" : 2147483648,
 	"seed" : 100,
+	"start_queue": "q1",
 	"start_time": 2,
+	"arrival_range": [2, 5],
 	"queues": {
 		"q1": {
-			"in": true,
-			"out": { },
 			"max_queue_size": 5,
 			"servers": 1,
-			"arrival_range": [2, 5],
-			"departure_range": [3, 5]
+			"departure_range": [3, 5],
+			"out": { }
 		}
 	}
 }
