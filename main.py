@@ -91,7 +91,7 @@ def run_simulation(simul: simulator.Simulator, params: Parameters):
 
 def print_results(simul: simulator.Simulator):
     """Print global simulation and individual queue results"""
-    print(f'Final time: {simul.time}')
+    print(f'Final time: {simul.time:.2f}')
 
     for q in simul.queues.values():
         print(f'\n{q.name}\n')
