@@ -8,7 +8,7 @@ from random import random
 class Random:
     """Random number generator."""
 
-    def __init__(self, a: int, c: int, m: int, seed: float):
+    def __init__(self, a: float, c: float, m: float, seed: float):
         self.a = a
         self.c = c
         self.m = m
@@ -63,12 +63,12 @@ class Event:
     """The time at which this event should take effect."""
     kind: EventKind
     """The event kind."""
-    queue: str
+    queue: 'Queue'
     """From which queue this event was issued.
     Ignored for arrival events.
     """
 
-    def __eq__(self, o: 'Event') -> bool:
+    def __eq__(self, o: object) -> bool:
         return self.__dict__ == o.__dict__
 
     def __gt__(self, o: 'Event') -> bool:
@@ -80,7 +80,7 @@ class Queue:
 
     def __init__(
         self, name: str, servers: int, max_queue_size: int,
-        departure_range: float, out: dict[str, float]
+        departure_range: range, out: dict[str, float]
     ):
         self.name = name
         """The query name."""
@@ -131,12 +131,12 @@ class Simulator:
         """Heap of events to be processed, sorted by earliest deadline first.
         Should not be manipulated without the heapq package functions.
         """
-        self.time = 0
+        self.time = 0.0
         """Global simulation time."""
         self.random_generated = 0
         """Amount of random numbers generated."""
 
-    def start(self, time: float = None):
+    def start(self, time: float | None = None):
         """Schedule the first arrival."""
         self._schedule_arrival(time)
 
@@ -205,16 +205,7 @@ class Simulator:
         else:
             destination.events_lost += 1
 
-    def _depart(self, e: Event):
-        """Process a departure event and schedule a new one if needed."""
-        self._set_time(e.time)
-        queue = e.queue
-        queue.in_queue -= 1
-
-        if queue.in_queue >= queue.servers:
-            self._schedule_departure(queue)
-
-    def _schedule_arrival(self, time: float = None):
+    def _schedule_arrival(self, time: float | None = None):
         """Add a new arrival event to the schedule."""
         if time is None:
             time = self._get_arrival_time()
