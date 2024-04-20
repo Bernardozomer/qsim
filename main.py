@@ -1,7 +1,7 @@
 import json
 import sys
 
-import tabulate
+from tabulate import tabulate
 
 import simulator
 
@@ -103,7 +103,7 @@ def print_results(simul: simulator.Simulator):
             probability = (time / simul.time) * 100
             table.append([i, time, probability])
 
-        print(tabulate.tabulate(table, headers, floatfmt=('', '.2f', '.2f')))
+        print(tabulate(table, headers, floatfmt='.2f'))
 
         print(f'\nEvents lost: {q.events_lost}')
 
