@@ -205,6 +205,15 @@ class Simulator:
         else:
             destination.events_lost += 1
 
+    def _depart(self, e: Event):
+        """Process a departure event and schedule a new one if needed."""
+        self._set_time(e.time)
+        queue = e.queue
+        queue.in_queue -= 1
+
+        if queue.in_queue >= queue.servers:
+            self._schedule_departure(queue)
+
     def _schedule_arrival(self, time: float | None = None):
         """Add a new arrival event to the schedule."""
         if time is None:
