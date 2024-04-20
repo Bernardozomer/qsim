@@ -1,6 +1,8 @@
 import json
 import sys
 
+import tabulate
+
 import simulator
 
 
@@ -93,11 +95,15 @@ def print_results(simul: simulator.Simulator):
 
     for q in simul.queues.values():
         print(f'\n{q.name}\n')
-        print('Times per queue size:')
+
+        table = []
+        headers = ['Queue size', 'Time', 'Probability %']
 
         for i, time in enumerate(q.times_per_size):
-            probability = (time / simul.time)
-            print(f'{i}: {time} ({probability:.2f})')
+            probability = (time / simul.time) * 100
+            table.append([i, time, probability])
+
+        print(tabulate.tabulate(table, headers, floatfmt=('', '.2f', '.2f')))
 
         print(f'\nEvents lost: {q.events_lost}')
 
