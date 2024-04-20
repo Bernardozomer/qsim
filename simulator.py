@@ -2,6 +2,7 @@ import heapq
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import total_ordering
+from math import inf
 from random import random
 
 
@@ -50,8 +51,6 @@ class EventKind(Enum):
     """Arrival events come from outside into the system."""
     PASSAGE = auto()
     """Passage events go from one queue in the system to another."""
-    DEPARTURE = auto()
-    """Departure events go from the system to outside."""
 
 
 @dataclass
@@ -79,7 +78,9 @@ class Queue:
     """Query parameters and current state."""
 
     def __init__(
-        self, name: str, servers: int, max_queue_size: int,
+        # Queue capacity can only be a floating point number in the sense that
+        # infinity is not an integer.
+        self, name: str, servers: int, max_queue_size: int | float,
         departure_range: range, out: dict[str, float]
     ):
         self.name = name
@@ -94,14 +95,22 @@ class Queue:
         """Queue-name-to-probability mapping for determining next queue
         in a passage event. Empty for end queues.
         """
-        self.is_end = len(self.out) == 0
-        """End queues are those which issue departure events."""
         self.in_queue = 0
         """How many client are currently in the queue."""
-        self.times_per_size = [0 for _ in range(0, self.max_queue_size + 1)]
-        """How much time the queue spent with each amount of client present
-        during the simulation.
-        """
+
+        if self.max_queue_size != inf:
+            # Done to prevent mistaken LSP errors.
+            assert type(self.max_queue_size) == int
+
+            self.times_per_size = [
+                0.0 for _ in range(0, self.max_queue_size + 1)
+            ]
+            """How much time the queue spent
+            with each amount of clients present during the simulation.
+            """
+        else:
+            self.times_per_size = [0.0]
+
         self.events_lost = 0
         """How many events had to be discarded by the queue
         and were thus lost.
@@ -146,10 +155,8 @@ class Simulator:
 
         if event.kind == EventKind.ARRIVAL:
             self._arrive(event)
-        elif event.kind == EventKind.PASSAGE:
-            self._pass(event)
         else:
-            self._depart(event)
+            self._pass(event)
 
     def _pop_next_event(self) -> Event:
         """Return the event with the earliest deadline
@@ -169,10 +176,7 @@ class Simulator:
             self.start_queue.in_queue += 1
 
             if self.start_queue.in_queue <= self.start_queue.servers:
-                if self.start_queue.is_end:
-                    self._schedule_departure(self.start_queue)
-                else:
-                    self._schedule_passage(self.start_queue)
+                self._schedule_passage(self.start_queue)
         else:
             self.start_queue.events_lost += 1
 
@@ -194,25 +198,17 @@ class Simulator:
 
         destination = self._get_destination(queue)
 
+        if destination is None:
+            # Remove this client from the system.
+            return
+
         if not destination.is_full():
             destination.in_queue += 1
 
             if destination.in_queue <= destination.servers:
-                if destination.is_end:
-                    self._schedule_departure(destination)
-                else:
-                    self._schedule_passage(destination)
+                self._schedule_passage(destination)
         else:
             destination.events_lost += 1
-
-    def _depart(self, e: Event):
-        """Process a departure event and schedule a new one if needed."""
-        self._set_time(e.time)
-        queue = e.queue
-        queue.in_queue -= 1
-
-        if queue.in_queue >= queue.servers:
-            self._schedule_departure(queue)
 
     def _schedule_arrival(self, time: float | None = None):
         """Add a new arrival event to the schedule."""
@@ -234,16 +230,6 @@ class Simulator:
             )
         )
 
-    def _schedule_departure(self, queue: Queue):
-        """Add a new departure event to the schedule."""
-        heapq.heappush(
-            self.schedule,
-            Event(
-                self.time + self._get_departure_time(queue),
-                EventKind.DEPARTURE, queue
-            )
-        )
-
     def _get_arrival_time(self) -> float:
         """Randomly generate the time for an arrival event."""
         self.random_generated += 1
@@ -260,9 +246,10 @@ class Simulator:
             queue.departure_range.stop - queue.departure_range.start
         ) + queue.departure_range.start
 
-    def _get_destination(self, queue: Queue) -> Queue:
+    def _get_destination(self, queue: Queue) -> Queue | None:
         """Choose the next queue for a passage event at random
-        from the passer's output probabilities.
+        from the passer's output probabilities. Return None if the client
+        should leave the system instead.
         """
 
         # Generate a random number between 0 and 1.
@@ -278,7 +265,7 @@ class Simulator:
             if x <= 0:
                 choice = q
 
-        return self.queues[choice]
+        return None if not choice else self.queues[choice]
 
     def _set_time(self, time: float):
         """Set the global simulation time
@@ -288,6 +275,10 @@ class Simulator:
         delta = time - self.time
 
         for q in self.queues.values():
+            # This test is only needed for queues of infinite capacity.
+            if len(q.times_per_size) < q.in_queue + 1:
+                q.times_per_size.append(0)
+
             q.times_per_size[q.in_queue] += delta
 
         self.time = time

@@ -1,5 +1,6 @@
 import json
 import sys
+from math import inf
 
 from tabulate import tabulate
 
@@ -51,8 +52,13 @@ class Parameters:
                 q_params['departure_range'][0], q_params['departure_range'][1]
             )
 
+            max_queue_size = q_params['max_queue_size']
+
+            if max_queue_size is None:
+                max_queue_size = inf
+
             self.queues.append(simulator.Queue(
-                q_name, q_params['servers'], q_params['max_queue_size'],
+                q_name, q_params['servers'], max_queue_size,
                 departure_range, q_params['out']
             ))
 
