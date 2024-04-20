@@ -48,9 +48,9 @@ class RandomFromList:
 
 class EventKind(Enum):
     ARRIVAL = auto()
-    """Arrival events come from outside into the system."""
-    PASSAGE = auto()
-    """Passage events go from one queue in the system to another."""
+    """For clients coming from outside into the system."""
+    DEPARTURE = auto()
+    """For clients going from one queue to another or exiting the system."""
 
 
 @dataclass
@@ -93,7 +93,7 @@ class Queue:
         """Time range for how long clients stay in this queue."""
         self.out = out
         """Queue-name-to-probability mapping for determining next queue
-        in a passage event. Empty for end queues.
+        in a passage event. Empty string means outside the system.
         """
         self.in_queue = 0
         """How many client are currently in the queue."""
@@ -109,6 +109,7 @@ class Queue:
             with each amount of clients present during the simulation.
             """
         else:
+            # Since capacity is infinite, this will increase in size as needed.
             self.times_per_size = [0.0]
 
         self.events_lost = 0
@@ -156,7 +157,7 @@ class Simulator:
         if event.kind == EventKind.ARRIVAL:
             self._arrive(event)
         else:
-            self._pass(event)
+            self._depart(event)
 
     def _pop_next_event(self) -> Event:
         """Return the event with the earliest deadline
@@ -167,7 +168,7 @@ class Simulator:
     def _arrive(self, e: Event):
         """Process an arrival event and schedule a new one.
         If possible, adds a new client to the start queue and schedules their
-        passage or departure.
+        departure.
         """
 
         self._set_time(e.time)
@@ -176,17 +177,17 @@ class Simulator:
             self.start_queue.in_queue += 1
 
             if self.start_queue.in_queue <= self.start_queue.servers:
-                self._schedule_passage(self.start_queue)
+                self._schedule_departure(self.start_queue)
         else:
             self.start_queue.events_lost += 1
 
         self._schedule_arrival()
 
-    def _pass(self, e: Event):
-        """Process a passage event and schedule a new one if needed.
+    def _depart(self, e: Event):
+        """Process a departure event and schedule a new one if needed.
         Choose the next queue at random from the passer's output probabilities.
-        If the client could enter the next queue,
-        also schedule their passage or departure.
+        If the client can enter the next queue, also schedule their departure.
+        If the client should exit instead, remove them from the system.
         """
 
         self._set_time(e.time)
@@ -194,7 +195,7 @@ class Simulator:
         queue.in_queue -= 1
 
         if queue.in_queue >= queue.servers:
-            self._schedule_passage(queue)
+            self._schedule_departure(queue)
 
         destination = self._get_destination(queue)
 
@@ -206,7 +207,7 @@ class Simulator:
             destination.in_queue += 1
 
             if destination.in_queue <= destination.servers:
-                self._schedule_passage(destination)
+                self._schedule_departure(destination)
         else:
             destination.events_lost += 1
 
@@ -220,13 +221,13 @@ class Simulator:
             Event(self.time + time, EventKind.ARRIVAL, self.start_queue)
         )
 
-    def _schedule_passage(self, queue: Queue):
-        """Add a new passage event to the schedule."""
+    def _schedule_departure(self, queue: Queue):
+        """Add a new departure event to the schedule."""
         heapq.heappush(
             self.schedule,
             Event(
                 self.time + self._get_departure_time(queue),
-                EventKind.PASSAGE, queue
+                EventKind.DEPARTURE, queue
             )
         )
 
@@ -239,7 +240,7 @@ class Simulator:
         ) + self.arrival_range.start
 
     def _get_departure_time(self, queue: Queue) -> float:
-        """Randomly generate the time for a passage or departure event."""
+        """Randomly generate the time for a departure event."""
         self.random_generated += 1
 
         return self.random.next() * (
