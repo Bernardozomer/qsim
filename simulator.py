@@ -254,6 +254,9 @@ class Simulator:
         """
 
         # Generate a random number between 0 and 1.
+        # TODO: Should this use the random number generator provided?
+        #       And should it count towards the amount of
+        #       random numbers generated?
         x = random()
         choice = None
 
@@ -265,6 +268,7 @@ class Simulator:
 
             if x <= 0:
                 choice = q
+                break
 
         return None if not choice else self.queues[choice]
 
