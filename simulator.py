@@ -2,13 +2,14 @@ import heapq
 from dataclasses import dataclass
 from enum import Enum, auto
 from functools import total_ordering
+from math import inf
 from random import random
 
 
 class Random:
     """Random number generator."""
 
-    def __init__(self, a: int, c: int, m: int, seed: float):
+    def __init__(self, a: float, c: float, m: float, seed: float):
         self.a = a
         self.c = c
         self.m = m
@@ -47,11 +48,9 @@ class RandomFromList:
 
 class EventKind(Enum):
     ARRIVAL = auto()
-    """Arrival events come from outside into the system."""
-    PASSAGE = auto()
-    """Passage events go from one queue in the system to another."""
+    """For clients coming from outside into the system."""
     DEPARTURE = auto()
-    """Departure events go from the system to outside."""
+    """For clients going from one queue to another or exiting the system."""
 
 
 @dataclass
@@ -63,12 +62,12 @@ class Event:
     """The time at which this event should take effect."""
     kind: EventKind
     """The event kind."""
-    queue: str
+    queue: 'Queue'
     """From which queue this event was issued.
     Ignored for arrival events.
     """
 
-    def __eq__(self, o: 'Event') -> bool:
+    def __eq__(self, o: object) -> bool:
         return self.__dict__ == o.__dict__
 
     def __gt__(self, o: 'Event') -> bool:
@@ -79,8 +78,10 @@ class Queue:
     """Query parameters and current state."""
 
     def __init__(
-        self, name: str, servers: int, max_queue_size: int,
-        departure_range: float, out: dict[str, float]
+        # Queue capacity can only be a floating point number in the sense that
+        # infinity is not an integer.
+        self, name: str, servers: int, max_queue_size: int | float,
+        departure_range: range, out: dict[str, float]
     ):
         self.name = name
         """The query name."""
@@ -92,16 +93,25 @@ class Queue:
         """Time range for how long clients stay in this queue."""
         self.out = out
         """Queue-name-to-probability mapping for determining next queue
-        in a passage event. Empty for end queues.
+        in a passage event. Empty string means outside the system.
         """
-        self.is_end = len(self.out) == 0
-        """End queues are those which issue departure events."""
         self.in_queue = 0
         """How many client are currently in the queue."""
-        self.times_per_size = [0 for _ in range(0, self.max_queue_size + 1)]
-        """How much time the queue spent with each amount of client present
-        during the simulation.
-        """
+
+        if self.max_queue_size != inf:
+            # Done to prevent mistaken LSP errors.
+            assert type(self.max_queue_size) == int
+
+            self.times_per_size = [
+                0.0 for _ in range(0, self.max_queue_size + 1)
+            ]
+            """How much time the queue spent
+            with each amount of clients present during the simulation.
+            """
+        else:
+            # Since capacity is infinite, this will increase in size as needed.
+            self.times_per_size = [0.0]
+
         self.events_lost = 0
         """How many events had to be discarded by the queue
         and were thus lost.
@@ -131,12 +141,12 @@ class Simulator:
         """Heap of events to be processed, sorted by earliest deadline first.
         Should not be manipulated without the heapq package functions.
         """
-        self.time = 0
+        self.time = 0.0
         """Global simulation time."""
         self.random_generated = 0
         """Amount of random numbers generated."""
 
-    def start(self, time: float = None):
+    def start(self, time: float | None = None):
         """Schedule the first arrival."""
         self._schedule_arrival(time)
 
@@ -146,8 +156,6 @@ class Simulator:
 
         if event.kind == EventKind.ARRIVAL:
             self._arrive(event)
-        elif event.kind == EventKind.PASSAGE:
-            self._pass(event)
         else:
             self._depart(event)
 
@@ -160,7 +168,7 @@ class Simulator:
     def _arrive(self, e: Event):
         """Process an arrival event and schedule a new one.
         If possible, adds a new client to the start queue and schedules their
-        passage or departure.
+        departure.
         """
 
         self._set_time(e.time)
@@ -169,20 +177,17 @@ class Simulator:
             self.start_queue.in_queue += 1
 
             if self.start_queue.in_queue <= self.start_queue.servers:
-                if self.start_queue.is_end:
-                    self._schedule_departure(self.start_queue)
-                else:
-                    self._schedule_passage(self.start_queue)
+                self._schedule_departure(self.start_queue)
         else:
             self.start_queue.events_lost += 1
 
         self._schedule_arrival()
 
-    def _pass(self, e: Event):
-        """Process a passage event and schedule a new one if needed.
+    def _depart(self, e: Event):
+        """Process a departure event and schedule a new one if needed.
         Choose the next queue at random from the passer's output probabilities.
-        If the client could enter the next queue,
-        also schedule their passage or departure.
+        If the client can enter the next queue, also schedule their departure.
+        If the client should exit instead, remove them from the system.
         """
 
         self._set_time(e.time)
@@ -190,31 +195,23 @@ class Simulator:
         queue.in_queue -= 1
 
         if queue.in_queue >= queue.servers:
-            self._schedule_passage(queue)
+            self._schedule_departure(queue)
 
         destination = self._get_destination(queue)
+
+        if destination is None:
+            # Remove this client from the system.
+            return
 
         if not destination.is_full():
             destination.in_queue += 1
 
             if destination.in_queue <= destination.servers:
-                if destination.is_end:
-                    self._schedule_departure(destination)
-                else:
-                    self._schedule_passage(destination)
+                self._schedule_departure(destination)
         else:
             destination.events_lost += 1
 
-    def _depart(self, e: Event):
-        """Process a departure event and schedule a new one if needed."""
-        self._set_time(e.time)
-        queue = e.queue
-        queue.in_queue -= 1
-
-        if queue.in_queue >= queue.servers:
-            self._schedule_departure(queue)
-
-    def _schedule_arrival(self, time: float = None):
+    def _schedule_arrival(self, time: float | None = None):
         """Add a new arrival event to the schedule."""
         if time is None:
             time = self._get_arrival_time()
@@ -222,16 +219,6 @@ class Simulator:
         heapq.heappush(
             self.schedule,
             Event(self.time + time, EventKind.ARRIVAL, self.start_queue)
-        )
-
-    def _schedule_passage(self, queue: Queue):
-        """Add a new passage event to the schedule."""
-        heapq.heappush(
-            self.schedule,
-            Event(
-                self.time + self._get_departure_time(queue),
-                EventKind.PASSAGE, queue
-            )
         )
 
     def _schedule_departure(self, queue: Queue):
@@ -253,20 +240,28 @@ class Simulator:
         ) + self.arrival_range.start
 
     def _get_departure_time(self, queue: Queue) -> float:
-        """Randomly generate the time for a passage or departure event."""
+        """Randomly generate the time for a departure event."""
         self.random_generated += 1
 
         return self.random.next() * (
             queue.departure_range.stop - queue.departure_range.start
         ) + queue.departure_range.start
 
-    def _get_destination(self, queue: Queue) -> Queue:
+    def _get_destination(self, queue: Queue) -> Queue | None:
         """Choose the next queue for a passage event at random
-        from the passer's output probabilities.
+        from the passer's output probabilities. Return None if the client
+        should leave the system instead.
         """
 
+        # If only one destination is possible, return it.
+        if len(queue.out) == 1:
+            choice = list(queue.out.keys())[0]
+            return None if not choice else self.queues[choice]
+
+        # Else, choose randomly from the available options.
         # Generate a random number between 0 and 1.
-        x = random()
+        x = self.random.next()
+        self.random_generated += 1
         choice = None
 
         # Continuously subtract the random number from the passer's output
@@ -277,8 +272,9 @@ class Simulator:
 
             if x <= 0:
                 choice = q
+                break
 
-        return self.queues[choice]
+        return None if not choice else self.queues[choice]
 
     def _set_time(self, time: float):
         """Set the global simulation time
@@ -288,6 +284,10 @@ class Simulator:
         delta = time - self.time
 
         for q in self.queues.values():
+            # This test is only needed for queues of infinite capacity.
+            if len(q.times_per_size) < q.in_queue + 1:
+                q.times_per_size.append(0)
+
             q.times_per_size[q.in_queue] += delta
 
         self.time = time
