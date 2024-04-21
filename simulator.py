@@ -253,11 +253,15 @@ class Simulator:
         should leave the system instead.
         """
 
+        # If only one destination is possible, return it.
+        if len(queue.out) == 1:
+            choice = list(queue.out.keys())[0]
+            return None if not choice else self.queues[choice]
+
+        # Else, choose randomly from the available options.
         # Generate a random number between 0 and 1.
-        # TODO: Should this use the random number generator provided?
-        #       And should it count towards the amount of
-        #       random numbers generated?
-        x = random()
+        x = self.random.next()
+        self.random_generated += 1
         choice = None
 
         # Continuously subtract the random number from the passer's output
